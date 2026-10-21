@@ -7,6 +7,8 @@ There are two load-test services for the public (logged-out) GET APIs of fast-dr
 | [`load-test/`](load-test/README.md) | **k6** | Load and stress tests: terminal status lines, Markdown/HTML/JSON report, and a live browser page on a laptop |
 | [`locust-load-test/`](locust-load-test/README.md) | **Locust** | The same two modes, the same settings and the same report layout, using all CPU cores |
 | [`incident-sim/`](incident-sim/README.md) | — | A fake API that fails on purpose (slow, timeouts, 5xx, refused, reset…), plus `verify.sh`, which checks both tools against it |
+| [`ddos-resilience/`](ddos-resilience/README.md) | — | HTTP flood from one machine against **your own** server, to test fail2ban: a before/after defense report |
+| [`fail2ban-guide/`](fail2ban-guide/FAIL2BAN-SETUP.md) | — | Step-by-step fail2ban + nginx rate-limit setup for the server |
 
 Both tools have two modes:
 - **`load`:** sends exactly the rate you set (`REQUESTS_PER_MINUTE` or `REQUESTS_PER_SECOND`) for `DURATION`, then reports how the server handled it.

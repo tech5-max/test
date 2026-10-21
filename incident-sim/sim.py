@@ -24,6 +24,8 @@ SCENARIO = os.environ.get("SCENARIO", "healthy")
 FAIL_ABOVE = float(os.environ.get("FAIL_ABOVE_RPS", "100"))
 BASE_MS = float(os.environ.get("BASE_LATENCY_MS", "20"))
 STRAY_COUNT = int(os.environ.get("STRAY_COUNT", "2"))
+BAN_AFTER = int(os.environ.get("BAN_AFTER_REQUESTS", "1500"))
+BAN_SECONDS = float(os.environ.get("BAN_SECONDS", "8"))
 PORT = int(os.environ.get("PORT", "8080"))
 
 arrivals = collections.deque()
@@ -55,6 +57,18 @@ def hard_reset(writer):
     writer.transport.abort()
 
 
+async def _ban_cycle():
+    # Close the listener (connections are refused), then reopen after the ban.
+    srv = state["server"]
+    if srv:
+        srv.close()
+    await asyncio.sleep(BAN_SECONDS)
+    state["tripped"] = False
+    newsrv = await asyncio.start_server(handle, "0.0.0.0", PORT, backlog=4096, reuse_address=True)
+    state["server"] = newsrv
+    print("sim: ban lifted; accepting connections again", flush=True)
+
+
 async def handle(reader, writer):
     state["conns"].add(writer)
     try:
@@ -74,6 +88,18 @@ async def handle(reader, writer):
                     for w in list(state["conns"]):
                         w.close()
                     return
+            # fail2ban-style ban: after BAN_AFTER total requests from the flood,
+            # stop accepting connections for BAN_SECONDS, then reopen (unban).
+            if SCENARIO == "ban" and not state["tripped"] and state["requests"] >= BAN_AFTER:
+                state["tripped"] = True
+                print(f"sim: ban triggered after {state['requests']} requests; dropping all connections for {BAN_SECONDS}s", flush=True)
+                asyncio.get_event_loop().create_task(_ban_cycle())
+                for w in list(state["conns"]):
+                    try:
+                        w.close()
+                    except Exception:
+                        pass
+                return
             failing = state["tripped"] or (over and SCENARIO in ("timeout", "5xx"))
 
             if SCENARIO == "timeout" and failing:
