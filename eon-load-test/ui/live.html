@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Load test live</title>
+<style>
+:root{--bg:#fff;--fg:#111827;--mute:#6b7280;--line:#e5e7eb;--card:#f9fafb;--g:#16a34a;--y:#d97706;--r:#dc2626;--b:#2563eb}
+@media (prefers-color-scheme:dark){:root{--bg:#0b0f17;--fg:#e5e7eb;--mute:#9ca3af;--line:#1f2937;--card:#111827}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+h1{font-size:20px;margin:0}
+.meta{color:var(--mute);font-size:13px}
+.status{font-weight:600}
+.stage{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);margin-bottom:14px}
+.stage .dot{width:14px;height:14px;border-radius:50%;background:var(--mute);flex:0 0 auto}
+.stage .t{font-size:18px;font-weight:700}
+.stage .d{color:var(--mute);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile .k{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tile .v{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .s{color:var(--mute);font-size:12px;font-variant-numeric:tabular-nums}
+.totals{color:var(--mute);font-size:13px;margin:14px 0 6px}
+svg{width:100%;height:auto;display:block}
+.ax{fill:var(--mute);font-size:11px}
+.legend{color:var(--mute);font-size:12px}
+.hint{color:var(--mute);font-size:13px;margin-top:16px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Load test: live</h1>
+    <div class="meta"><span id="mode">–</span> · <span id="target">–</span> · <span class="status" id="status">Waiting for k6…</span></div>
+  </header>
+
+  <div class="stage"><div class="dot" id="dot"></div><div><div class="t" id="stageText">–</div><div class="d" id="stageDetail">Starts when the test begins</div></div></div>
+
+  <div class="grid">
+    <div class="tile"><div class="k">Requests / sec</div><div class="v" id="rps">–</div><div class="s" id="rpsTarget">&nbsp;</div></div>
+    <div class="tile"><div class="k">Requests / min</div><div class="v" id="rpm">–</div><div class="s" id="rpmTarget">&nbsp;</div></div>
+    <div class="tile"><div class="k">Virtual users</div><div class="v" id="vus">–</div><div class="s" id="vusMax">&nbsp;</div></div>
+    <div class="tile"><div class="k">p95 response</div><div class="v" id="p95">–</div><div class="s" id="avg">&nbsp;</div></div>
+    <div class="tile"><div class="k">p99 response</div><div class="v" id="p99">–</div><div class="s" id="p90">&nbsp;</div></div>
+    <div class="tile"><div class="k">Errors</div><div class="v" id="err">–</div><div class="s" id="errAbs">&nbsp;</div></div>
+  </div>
+
+  <div class="totals" id="totals">&nbsp;</div>
+  <svg id="chart" viewBox="0 0 760 180" role="img" aria-label="Requests per second and p95 over time"></svg>
+  <div class="legend"><span style="color:var(--b)">■</span> req/s &nbsp; <span style="color:var(--y)">━</span> p95 response time (right axis) · last <span id="win">–</span></div>
+  <p class="hint" id="hint">Numbers are for the latest <span id="period">2s</span> window. The full report is written to <code>reports/</code> when the test ends.</p>
+</main>
+<script>
+// Reads k6's live metrics stream (web dashboard backend) and shows only the
+// key numbers. Settings come from the URL (run.sh fills them in).
+const q = new URLSearchParams(location.search);
+const port = q.get("port") || "5665";
+const cfg = {
+  mode: q.get("mode") || "",
+  target: q.get("target") || "",
+  healthyErr: +(q.get("healthyErr") ?? 0.01),
+  healthyP95: +(q.get("healthyP95") ?? 2000),
+  criticalErr: +(q.get("criticalErr") ?? 0.01),
+  stepSeconds: +(q.get("stepSeconds") || 10),
+  startRequests: +(q.get("startRequests") || 0),
+  stepRequests: +(q.get("stepRequests") || 0),
+  loadRps: +(q.get("loadRps") || 0),
+};
+const $ = (id) => document.getElementById(id);
+$("mode").textContent = cfg.mode ? `${cfg.mode} mode` : "–";
+$("target").textContent = cfg.target || "–";
+
+const ms = (v) => (v == null || isNaN(v) ? "–" : v >= 1000 ? `${(v / 1000).toFixed(2)}s` : `${Math.round(v)}ms`);
+const n0 = (v) => (v == null || isNaN(v) ? "–" : Math.round(v).toLocaleString());
+const rpsTxt = (v) => (v == null || isNaN(v) ? "–" : v >= 10 ? Math.round(v).toLocaleString() : v.toFixed(1));
+const STAGES = {
+  healthy: ["var(--g)", "🟢 Easily serves"],
+  stressed: ["var(--y)", "🟡 Under stress but survives"],
+  critical: ["var(--r)", "🔴 Critical: server crash"],
+};
+
+let names = [];
+let agg = { counter: ["count", "rate"], gauge: ["value"], rate: ["rate"], trend: ["avg", "max", "med", "min", "p(90)", "p(95)", "p(99)"] };
+let types = {};
+let startMs = null;
+let peakVus = 0;
+let gotData = false;
+const history = [];
+
+const val = (arr, metric, key) => {
+  const i = names.indexOf(metric);
+  if (i < 0 || !arr[i]) return undefined;
+  const k = (agg[types[metric]] || []).indexOf(key);
+  return k < 0 ? undefined : arr[i][k];
+};
+
+// 🔴 only when the server is failing (5xx or no response); slowness alone is 🟡.
+function stageOf(err, p95, hardErr) {
+  if (hardErr > cfg.criticalErr) return "critical";
+  if (err <= cfg.healthyErr && p95 <= cfg.healthyP95) return "healthy";
+  return "stressed";
+}
+
+let nowMs = null; // k6's clock, from the "time" metric of each snapshot
+const elapsedSec = () => (startMs && nowMs ? Math.max(0, (nowMs - startMs) / 1000) : 0);
+
+function targetNow() {
+  if (cfg.mode === "load") return { rps: cfg.loadRps, step: null };
+  if (!startMs || !cfg.stepSeconds) return { rps: null, step: null };
+  const elapsed = elapsedSec();
+  const step = Math.max(1, Math.floor(elapsed / cfg.stepSeconds) + 1);
+  return { rps: (cfg.startRequests + (step - 1) * cfg.stepRequests) / cfg.stepSeconds, step };
+}
+
+function draw() {
+  const W = 760, H = 180, pl = 44, pr = 56, pt = 10, pb = 22, pw = W - pl - pr, ph = H - pt - pb;
+  if (history.length < 2) { $("chart").innerHTML = ""; return; }
+  const maxR = Math.max(...history.map((h) => h.rps), 1);
+  const maxP = Math.max(...history.map((h) => h.p95 || 0), cfg.healthyP95, 1);
+  const x = (i) => pl + (i / (history.length - 1)) * pw;
+  const yR = (v) => pt + ph - (v / maxR) * ph;
+  const yP = (v) => pt + ph - (Math.min(v, maxP) / maxP) * ph;
+  const area = `M${x(0)},${pt + ph} ` + history.map((h, i) => `L${x(i).toFixed(1)},${yR(h.rps).toFixed(1)}`).join(" ") + ` L${x(history.length - 1)},${pt + ph} Z`;
+  const p95 = history.map((h, i) => `${x(i).toFixed(1)},${yP(h.p95 || 0).toFixed(1)}`).join(" ");
+  $("chart").innerHTML = `
+    <line x1="${pl}" y1="${pt + ph}" x2="${W - pr}" y2="${pt + ph}" stroke="var(--line)"/>
+    <path d="${area}" fill="var(--b)" opacity="0.25" stroke="var(--b)"/>
+    <polyline points="${p95}" fill="none" stroke="var(--y)" stroke-width="2"/>
+    <text x="${pl - 6}" y="${pt + 10}" class="ax" text-anchor="end">${rpsTxt(maxR)}</text>
+    <text x="${pl - 6}" y="${pt + ph}" class="ax" text-anchor="end">0</text>
+    <text x="${W - pr + 6}" y="${pt + 10}" class="ax">${ms(maxP)}</text>`;
+}
+
+function onSnapshot(arr) {
+  gotData = true;
+  nowMs = val(arr, "time", "value") ?? Date.now();
+  const rps = val(arr, "http_reqs", "rate") ?? 0;
+  const vus = val(arr, "vus", "value") ?? 0;
+  const p95 = val(arr, "http_req_duration", "p(95)");
+  const p99 = val(arr, "http_req_duration", "p(99)");
+  const p90 = val(arr, "http_req_duration", "p(90)");
+  const avg = val(arr, "http_req_duration", "avg");
+  // Counts per outcome class this window (see src/classes.js). Test-machine
+  // failures (client_limit) are left out of the server's rates.
+  const c = (k) => val(arr, `out_${k}`, "count") ?? 0;
+  const CRASH = ["server_5xx", "timeout", "refused", "reset", "unreachable", "tls", "other_network"];
+  const crash = CRASH.reduce((sum, k) => sum + c(k), 0);
+  const all = ["ok", "client_limit", "rate_limited", "other_4xx", ...CRASH].reduce((sum, k) => sum + c(k), 0);
+  const reqs = all - c("client_limit");
+  const err = reqs ? (reqs - c("ok")) / reqs : 0;
+  const hardErr = reqs ? crash / reqs : 0;
+  peakVus = Math.max(peakVus, vus);
+
+  const t = targetNow();
+  $("rps").textContent = rpsTxt(rps);
+  $("rpm").textContent = n0(rps * 60);
+  $("rpsTarget").textContent = t.rps != null ? `target ${rpsTxt(t.rps)}` : " ";
+  $("rpmTarget").textContent = t.rps != null ? `target ${n0(t.rps * 60)}` : " ";
+  $("vus").textContent = n0(vus);
+  $("vusMax").textContent = `peak ${n0(peakVus)}`;
+  $("p95").textContent = ms(p95);
+  $("avg").textContent = `avg ${ms(avg)}`;
+  $("p99").textContent = ms(p99);
+  $("p90").textContent = `p90 ${ms(p90)}`;
+  $("err").textContent = `${(err * 100).toFixed(err > 0 && err < 0.01 ? 2 : 1)}%`;
+  $("errAbs").textContent = `${n0(err * reqs)} of ${n0(reqs)} in window`;
+
+  if (reqs > 0) {
+    const st = stageOf(err, p95 ?? 0, hardErr);
+    $("dot").style.background = STAGES[st][0];
+    $("stageText").textContent = STAGES[st][1];
+  }
+  const elapsed = Math.round(elapsedSec());
+  $("stageDetail").textContent =
+    (t.step ? `Step ${t.step} · ` : "") + `${Math.floor(elapsed / 60)}m ${String(elapsed % 60).padStart(2, "0")}s elapsed`;
+  $("status").textContent = "Running";
+
+  history.push({ rps, p95: p95 ?? 0 });
+  if (history.length > 120) history.shift();
+  draw();
+}
+
+const LABELS = { server_5xx: "5xx", timeout: "timeouts", refused: "refused", reset: "resets", unreachable: "unreachable",
+  tls: "TLS", other_network: "other network", rate_limited: "rate-limited", other_4xx: "other 4xx", client_limit: "test-machine limit" };
+
+function onCumulative(arr) {
+  const c = (k) => val(arr, `out_${k}`, "count") ?? 0;
+  const total = ["ok", ...Object.keys(LABELS)].reduce((sum, k) => sum + c(k), 0);
+  const parts = Object.keys(LABELS).filter((k) => c(k)).map((k) => `${n0(c(k))} ${LABELS[k]}`);
+  $("totals").textContent =
+    `So far: ${n0(total)} requests · ${parts.length ? parts.join(", ") : "no failures"}` +
+    ` · overall p95 ${ms(val(arr, "http_req_duration", "p(95)"))}`;
+}
+
+function connect() {
+  const es = new EventSource(`http://localhost:${port}/events`);
+  const data = (e) => JSON.parse(e.data);
+  es.addEventListener("param", (e) => {
+    const p = data(e);
+    if (p.aggregates) agg = p.aggregates;
+    if (p.period) {
+      $("period").textContent = `${p.period / 1000}s`;
+      $("win").textContent = `${Math.round((p.period / 1000) * 120 / 60)} min`;
+    }
+  });
+  es.addEventListener("metric", (e) => {
+    // k6 orders every snapshot array by metric name (sorted), and new metrics
+    // can appear mid-run, so keep the list sorted.
+    for (const [k, v] of Object.entries(data(e))) {
+      if (!names.includes(k)) names.push(k);
+      types[k] = v.type;
+    }
+    names.sort();
+  });
+  es.addEventListener("start", (e) => {
+    const d = data(e);
+    startMs = Array.isArray(d) ? d.flat()[0] : Date.now();
+  });
+  es.addEventListener("snapshot", (e) => onSnapshot(data(e)));
+  es.addEventListener("cumulative", (e) => onCumulative(data(e)));
+  es.addEventListener("stop", () => finish());
+  es.onerror = () => {
+    if (gotData) { finish(); es.close(); }
+    else $("status").textContent = "Waiting for k6…";
+  };
+}
+
+function finish() {
+  $("status").textContent = "Finished";
+  $("hint").textContent = "Test finished. Open the report in reports/ (the newest .html file).";
+}
+
+connect();
+</script>
+</body>
+</html>

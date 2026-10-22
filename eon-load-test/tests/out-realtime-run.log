@@ -1,0 +1,143 @@
+▶ Building the harness image once…
+
+════════ combo single-cache-on  (replicas=1 cache=true ratelimit=false 20rps/25s) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=single-cache-on)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/single-cache-on/load-2026-10-22T12-28-33-879Z.md
+
+════════ combo single-cache-off  (replicas=1 cache=false ratelimit=false 8rps/20s) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ⚠ fast-dragon not serving 200 after 120s (last code 502) — running anyway to capture it
+▶ Load (COMBO=single-cache-off)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/single-cache-off/load-2026-10-22T12-31-27-542Z.md
+
+════════ combo multi-cache-on  (replicas=3 cache=true ratelimit=false 20rps/25s) ════════
+▶ Starting eon: fast-dragon×3, express-guardian×3, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=multi-cache-on)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/multi-cache-on/load-2026-10-22T12-32-04-284Z.md
+
+════════ combo multi-cache-off  (replicas=3 cache=false ratelimit=false 8rps/20s) ════════
+▶ Starting eon: fast-dragon×3, express-guardian×3, redis, lb…
+  ⚠ fast-dragon not serving 200 after 120s (last code 502) — running anyway to capture it
+▶ Load (COMBO=multi-cache-off)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/multi-cache-off/load-2026-10-22T12-35-03-284Z.md
+
+════════ combo ratelimit-on  (replicas=1 cache=true ratelimit=true 20rps/20s) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=ratelimit-on)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/ratelimit-on/load-2026-10-22T12-35-38-004Z.md
+
+════════ combo ratelimit-off  (replicas=1 cache=true ratelimit=false 20rps/20s) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=ratelimit-off)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/ratelimit-off/load-2026-10-22T12-36-22-943Z.md
+
+▶ Consolidating…
+  ✓ /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/consolidated-2026-10-22T12-36-58Z.md
+
+▶ Bug scan…
+  multi-cache-off: 161 reqs · success 0.0% · p95 14.269232999999998ms · server-failures 161 · 429s 0 · 4xx 0
+  multi-cache-on: 486 reqs · success 97.5% · p95 5581.6654947ms · server-failures 12 · 429s 0 · 4xx 0
+  ratelimit-off: 311 reqs · success 96.5% · p95 13967.28727735ms · server-failures 11 · 429s 0 · 4xx 0
+  ratelimit-on: 309 reqs · success 96.4% · p95 13675.788540249998ms · server-failures 11 · 429s 0 · 4xx 0
+  single-cache-off: 161 reqs · success 0.0% · p95 40.9179434499999ms · server-failures 161 · 429s 0 · 4xx 0
+  single-cache-on: 383 reqs · success 91.1% · p95 14997.893004149999ms · server-failures 34 · 429s 0 · 4xx 0
+  🔴 BUG   multi-cache-off: 161 server failures (5xx/no-response) — a GET endpoint is erroring under load
+  🔴 BUG   multi-cache-off: endpoint 'supply-history-btc' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'coins-list' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'ohlcv-btc-sma' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'dashboard' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'trading-volumes-max' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'markets-btc' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'coin-btc' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'pm-news' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'news' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'top-coins' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'total-market-cap-1m' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'token-unlocks' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'ohlcv-btc-1y' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'whale-available-coins' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'screener-spot' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'wishlist' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'tickers-sentiment' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'news-metadata' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'description-market-cap' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'bitcoin-dominance-1y' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'discover-spot-screening' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'ohlcv-eth-1y' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'screener-perps' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'total-market-cap-1y' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'trending-news' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'description-btc' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'whale-transfers' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'leaderboard' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'trading-volumes-1m' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'discover-perp-setups' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'discover-opportunities' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-off: endpoint 'market-sentiment' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   multi-cache-on: 12 server failures (5xx/no-response) — a GET endpoint is erroring under load
+  🔴 BUG   multi-cache-on: endpoint 'screener-perps' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   ratelimit-off: 11 server failures (5xx/no-response) — a GET endpoint is erroring under load
+  🔴 BUG   ratelimit-off: endpoint 'screener-perps' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   ratelimit-on: 11 server failures (5xx/no-response) — a GET endpoint is erroring under load
+  🔴 BUG   ratelimit-on: endpoint 'screener-perps' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: 161 server failures (5xx/no-response) — a GET endpoint is erroring under load
+  🔴 BUG   single-cache-off: endpoint 'discover-perp-setups' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'top-coins' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'leaderboard' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'discover-spot-screening' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'screener-spot' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'coins-list' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'trading-volumes-1m' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'whale-transfers' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'markets-btc' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'description-btc' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'dashboard' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'token-unlocks' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'trading-volumes-max' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'news-metadata' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'ohlcv-btc-1y' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'tickers-sentiment' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'wishlist' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'ohlcv-eth-1y' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'ohlcv-btc-sma' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'coin-btc' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'discover-opportunities' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'trending-news' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'total-market-cap-1m' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'pm-news' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'supply-history-btc' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'screener-perps' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'news' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'market-sentiment' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'bitcoin-dominance-1y' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'whale-available-coins' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'description-market-cap' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-off: endpoint 'total-market-cap-1y' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   single-cache-on: 34 server failures (5xx/no-response) — a GET endpoint is erroring under load
+  🔴 BUG   single-cache-on: endpoint 'screener-perps' (fast-dragon) failed 100% (5xx)
+  🔴 BUG   ratelimit-on: RATE_LIMIT_ENABLED=true but zero 429s — limiter not firing
+  🟡 WARN  multi-cache-off: endpoint 'eg-notifications' (express-guardian) failed 100% (5xx)
+  🟡 WARN  multi-cache-off: endpoint 'eg-tokens-from' (express-guardian) failed 100% (5xx)
+  🟡 WARN  multi-cache-off: endpoint 'eg-onboarding-tour' (express-guardian) failed 100% (5xx)
+  🟡 WARN  multi-cache-off: endpoint 'eg-tokens-to' (express-guardian) failed 100% (5xx)
+  🟡 WARN  multi-cache-off: endpoint 'eg-get-credits' (express-guardian) failed 100% (5xx)
+  🟡 WARN  multi-cache-off: endpoint 'eg-is-buyer' (express-guardian) failed 100% (5xx)
+  🟡 WARN  multi-cache-off: endpoint 'eg-profile' (express-guardian) failed 100% (5xx)
+  🟡 WARN  single-cache-off: endpoint 'eg-profile' (express-guardian) failed 100% (5xx)
+  🟡 WARN  single-cache-off: endpoint 'eg-is-buyer' (express-guardian) failed 100% (5xx)
+  🟡 WARN  single-cache-off: endpoint 'eg-get-credits' (express-guardian) failed 100% (5xx)
+  🟡 WARN  single-cache-off: endpoint 'eg-tokens-from' (express-guardian) failed 100% (5xx)
+  🟡 WARN  single-cache-off: endpoint 'eg-onboarding-tour' (express-guardian) failed 100% (5xx)
+  🟡 WARN  single-cache-off: endpoint 'eg-tokens-to' (express-guardian) failed 100% (5xx)
+  🟡 WARN  single-cache-off: endpoint 'eg-notifications' (express-guardian) failed 100% (5xx)
+  ℹ️  cache effect (single): p95 on=14997.893004149999ms vs off=40.9179434499999ms
+  ℹ️  scaling (cache-on): throughput single=15.32/s vs multi=19.44/s
+
+  ❌ 75 bug(s) found.
+
+Done. Reports + logs: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime

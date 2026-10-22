@@ -1,0 +1,72 @@
+# Local real-eon test rig for the harness (tests/realtime-test.sh only).
+# Boots both services in containers against the REAL stage/prod DBs, with:
+#   - RUN_CRONS=false         -> no migrations/crons/warmers (no DDL/cron writes)
+#   - an isolated redis        -> response cache + rate-limit store, thrown away
+#   - CACHE_ENABLED / RATE_LIMIT_ENABLED from the shell per combo
+#   - N replicas behind a THROWAWAY nginx (local ./nginx-lb.conf), only so the local
+#     multi-replica test has a load balancer. Production uses the nginx already on the
+#     server; predictive-ai-web-services ships no LB (docker-compose.loadtest.yml
+#     publishes ports for your nginx to upstream).
+# DB creds come from each service's own .env (env_file); REDIS_HOST is overridden
+# to the local redis. Local testing only.
+
+x-host: &host_gateway
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    <<: *host_gateway
+
+  fast-dragon:
+    build: ../../../predictive-ai-web-services/fast-dragon
+    env_file:
+      - path: ../../../predictive-ai-web-services/fast-dragon/.env
+        required: false
+    environment:
+      REDIS_HOST: redis
+      RUN_CRONS: "false"
+      CACHE_ENABLED: ${CACHE_ENABLED:-true}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+    expose:
+      - "5555"
+    restart: unless-stopped
+    <<: *host_gateway
+
+  express-guardian:
+    build: ../../../predictive-ai-web-services/express-guardian
+    env_file:
+      - path: ../../../predictive-ai-web-services/express-guardian/.env
+        required: false
+    environment:
+      REDIS_HOST: redis
+      RUN_CRONS: "false"
+      CACHE_ENABLED: ${CACHE_ENABLED:-true}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+    expose:
+      - "5001"
+    restart: unless-stopped
+    <<: *host_gateway
+
+  # Throwaway nginx just for the LOCAL multi-replica test. Production uses the nginx
+  # already installed on the server (predictive-ai-web-services ships no LB).
+  lb:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx-lb.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:8080" # -> fast-dragon
+      - "8081:8081" # -> express-guardian
+    depends_on:
+      - fast-dragon
+      - express-guardian
+    restart: unless-stopped
+    <<: *host_gateway
+
+networks:
+  default:
+    name: eon-realtime-net

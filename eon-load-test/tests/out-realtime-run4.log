@@ -1,0 +1,45 @@
+▶ Building the harness image once…
+
+════════ combo single-cache-on  (replicas=1 cache=true, rate-limit OFF, 20rps/25s) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+  warming cache (one read-only pass over fast-dragon endpoints)…
+▶ Load (COMBO=single-cache-on)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/single-cache-on/load-2026-10-22T13-17-48-059Z.md
+
+════════ combo single-cache-off  (replicas=1 cache=false, rate-limit OFF, 8rps/20s) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=single-cache-off)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/single-cache-off/load-2026-10-22T13-18-40-448Z.md
+
+════════ combo multi-cache-on  (replicas=3 cache=true, rate-limit OFF, 20rps/25s) ════════
+▶ Starting eon: fast-dragon×3, express-guardian×3, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+  warming cache (one read-only pass over fast-dragon endpoints)…
+▶ Load (COMBO=multi-cache-on)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/multi-cache-on/load-2026-10-22T13-20-56-178Z.md
+
+════════ combo multi-cache-off  (replicas=3 cache=false, rate-limit OFF, 8rps/20s) ════════
+▶ Starting eon: fast-dragon×3, express-guardian×3, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~2s)
+▶ Load (COMBO=multi-cache-off)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/multi-cache-off/load-2026-10-22T13-21-48-418Z.md
+
+▶ Consolidating…
+  ✓ /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/consolidated-2026-10-22T13-22-28Z.md
+
+▶ Bug scan…
+  multi-cache-off: 161 reqs · success 88.2% · p95 15007ms · 429s 0 · 5xx 1 (config 1) · timeouts 18
+  multi-cache-on: 473 reqs · success 94.7% · p95 13416ms · 429s 0 · 5xx 8 (config 8) · timeouts 17
+  single-cache-off: 153 reqs · success 93.5% · p95 15001ms · 429s 0 · 5xx 1 (config 1) · timeouts 9
+  single-cache-on: 368 reqs · success 58.7% · p95 15004ms · 429s 0 · 5xx 2 (config 2) · timeouts 150
+  🟡 CONFIG multi-cache-off: 18 timeouts (>req-timeout) — capacity: heavy endpoints too slow at this rate on this many replicas / cold cache, not a code bug
+  🟡 CONFIG single-cache-on: 150 timeouts (>req-timeout) — capacity: heavy endpoints too slow at this rate on this many replicas / cold cache, not a code bug
+  🟡 CONFIG 'screener-perps' (fast-dragon) 5xx even cache-on → server/env config, not the harness (e.g. WAREHOUSE_CLICKHOUSE_* unset for perps/derivatives)
+  ℹ️  cache effect (single): p95 on=15004ms vs off=15001ms
+  ℹ️  scaling (cache-on): throughput single=14.72/s vs multi=18.92/s
+
+  ✅ No harness/switch bugs. (3 server/env config note(s).)
+
+Done. Reports + logs: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime

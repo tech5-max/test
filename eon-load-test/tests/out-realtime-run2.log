@@ -1,0 +1,61 @@
+▶ Building the harness image once…
+
+════════ combo single-cache-on  (replicas=1 cache=true ratelimit=false 20rps/25s cookie=yes) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=single-cache-on)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/single-cache-on/load-2026-10-22T12-50-55-752Z.md
+
+════════ combo single-cache-off  (replicas=1 cache=false ratelimit=false 8rps/20s cookie=yes) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=single-cache-off)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/single-cache-off/load-2026-10-22T12-51-48-699Z.md
+
+════════ combo multi-cache-on  (replicas=3 cache=true ratelimit=false 20rps/25s cookie=yes) ════════
+▶ Starting eon: fast-dragon×3, express-guardian×3, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~2s)
+▶ Load (COMBO=multi-cache-on)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/multi-cache-on/load-2026-10-22T12-52-35-611Z.md
+
+════════ combo multi-cache-off  (replicas=3 cache=false ratelimit=false 8rps/20s cookie=yes) ════════
+▶ Starting eon: fast-dragon×3, express-guardian×3, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=multi-cache-off)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/multi-cache-off/load-2026-10-22T12-53-23-473Z.md
+
+════════ combo ratelimit-on  (replicas=1 cache=true ratelimit=true 20rps/15s cookie=no) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=ratelimit-on)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/ratelimit-on/load-2026-10-22T12-54-12-553Z.md
+
+════════ combo ratelimit-off  (replicas=1 cache=true ratelimit=false 20rps/15s cookie=no) ════════
+▶ Starting eon: fast-dragon×1, express-guardian×1, redis, lb…
+  ✓ fast-dragon ready (HTTP 200 after ~4s)
+▶ Load (COMBO=ratelimit-off)…
+  ✓ report: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/ratelimit-off/load-2026-10-22T12-54-41-049Z.md
+
+▶ Consolidating…
+  ✓ /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime/reports/consolidated-2026-10-22T12-55-04Z.md
+
+▶ Bug scan…
+  multi-cache-off: 161 reqs · success 88.2% · p95 15003ms · 429s 0 · server-fail 19 (config 1, other 18)
+  multi-cache-on: 478 reqs · success 97.5% · p95 7895ms · 429s 0 · server-fail 12 (config 12, other 0)
+  ratelimit-off: 301 reqs · success 97.0% · p95 5947ms · 429s 0 · server-fail 9 (config 9, other 0)
+  ratelimit-on: 301 reqs · success 18.9% · p95 2244ms · 429s 242 · server-fail 2 (config 2, other 0)
+  single-cache-off: 155 reqs · success 90.3% · p95 15003ms · 429s 0 · server-fail 15 (config 2, other 13)
+  single-cache-on: 383 reqs · success 74.2% · p95 15003ms · 429s 0 · server-fail 99 (config 5, other 94)
+  🔴 BUG   multi-cache-off: 18 unexplained server failures under load
+  🔴 BUG   single-cache-off: 'discover-opportunities' fails cache-off but works cache-on — cache-stub regression
+  🔴 BUG   single-cache-off: 13 unexplained server failures under load
+  🔴 BUG   single-cache-on: 94 unexplained server failures under load
+  🟡 CONFIG 'screener-perps' (fast-dragon) fails even cache-on → server/env config, not the harness (e.g. WAREHOUSE_CLICKHOUSE_* unset for perps/derivatives)
+  ℹ️  ratelimit-off: 0 × 429 (public ceiling 60/min logged-out; 300/min with a cookie)
+  ℹ️  ratelimit-on: 242 × 429 (public ceiling 60/min logged-out; 300/min with a cookie)
+  ℹ️  cache effect (single): p95 on=15003ms vs off=15003ms
+  ℹ️  scaling (cache-on): throughput single=15.32/s vs multi=19.12/s
+
+  ❌ 4 real bug(s) found.
+
+Done. Reports + logs: /Users/raviswamyp/pivot/eon-apps-latest/test/eon-load-test/tests/out-realtime

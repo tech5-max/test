@@ -4,9 +4,11 @@ There are two load-test services for the public (logged-out) GET APIs of fast-dr
 
 | Folder | Tool | What it is |
 |---|---|---|
-| [`load-test/`](load-test/README.md) | **k6** | Load and stress tests: terminal status lines, Markdown/HTML/JSON report, and a live browser page on a laptop |
+| [`load-test/`](load-test/README.md) | **k6** | Load and stress tests of the fast-dragon public GET APIs: terminal status lines, Markdown/HTML/JSON report, and a live browser page on a laptop |
+| [`eon-load-test/`](eon-load-test/README.md) | **k6** | Full eon load test (fast-dragon + express-guardian), run once per combo (cache on/off × single/multi process) with cookie auth, a full per-endpoint table, and a consolidate command that merges the 4 reports into one |
 | [`locust-load-test/`](locust-load-test/README.md) | **Locust** | The same two modes, the same settings and the same report layout, using all CPU cores |
-| [`incident-sim/`](incident-sim/README.md) | — | A fake API that fails on purpose (slow, timeouts, 5xx, refused, reset…), plus `verify.sh`, which checks both tools against it |
+| [`incident-sim/`](incident-sim/README.md) | — | A fake API that fails on purpose (slow, timeouts, 5xx, refused, reset…), plus `verify.sh`, which checks the load-test tools against it |
+| [`eon-checks/`](eon-checks/README.md) | — | Verifies the eon load-test server switches (`CACHE_ENABLED` cache stub, `DB_POOL_MAX`, and runtime checks for `RATE_LIMIT_ENABLED` / `RUN_CRONS` / the multi-container load balancer) |
 | [`ddos-resilience/`](ddos-resilience/README.md) | — | HTTP flood from one machine against **your own** server, to test fail2ban: a before/after defense report |
 | [`fail2ban-guide/`](fail2ban-guide/FAIL2BAN-SETUP.md) | — | Step-by-step fail2ban + nginx rate-limit setup for the server |
 
