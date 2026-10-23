@@ -82,6 +82,11 @@ function readConfig() {
     // CACHE_OFF=true on cache-off runs; it force-excludes the whole `ai` group
     // even if INCLUDE_AI_ANALYSIS=true, so the rule can't be violated by mistake.
     cacheOff: env("CACHE_OFF", "false").toLowerCase() === "true",
+    // INCLUDE_WRITE_ROUTES=true adds the write routes (watchlist add/update/delete,
+    // profile update). Off by default — they write to the stage test user's row.
+    includeWrites: env("INCLUDE_WRITE_ROUTES", "false").toLowerCase() === "true",
+    // How many real coin uuids to fetch in setup and rotate through the uuid GETs.
+    uuidRotateCount: num("UUID_ROTATE_COUNT", 20, { min: 1 }),
     // 🟢 errors ≤ HEALTHY_ERROR_RATE and p95 ≤ HEALTHY_P95_MS.
     // 🔴 hard failures HTTP 500+ only > CRITICAL_ERROR_RATE; stress stops there.
     // 🟡 anything in between. Slowness alone never makes a step 🔴.

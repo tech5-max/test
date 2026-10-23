@@ -139,9 +139,23 @@ Writes `reports/consolidated-<time>.md` from **only** the 4 conditions
 Same as `../load-test` (`TEST_MODE` load/stress, `REQUESTS_PER_*`, `DURATION`,
 `STRESS_*`, `HEALTHY_*`, `CRITICAL_ERROR_RATE`, `MAX_VUS`, timeouts) plus
 `GUARDIAN_BASE_URL`, `COOKIE`, `COMBO`, **`LOAD_TEST_SERVICE`** (fast-dragon |
-express-guardian | both), and **`CACHE_OFF`** (set `true` on cache-off runs — it
-force-excludes the AI + portfolio group so those paid/uncached routes are never hit
-without a cache, even if `INCLUDE_AI_ANALYSIS=true`). See `.env.example`.
+express-guardian | both), **`CACHE_OFF`** (set `true` on cache-off runs — it
+force-excludes the AI + portfolio group), **`UUID_ROTATE_COUNT`** (default 20 — how
+many real coin uuids to rotate through the uuid endpoints), and
+**`INCLUDE_WRITE_ROUTES`** (see below). See `.env.example`.
+
+**Rotating uuids:** the uuid endpoints (`ohlcv`, `coins`, `markets`, `description`,
+`supply-history`) rotate across `UUID_ROTATE_COUNT` real coins fetched from
+`/api/coins-list` at startup (falls back to BTC/ETH), so they exercise the DB, not just
+the BTC cache. AI endpoints stay on BTC (rotating them would trigger paid generations).
+
+**Write routes (`INCLUDE_WRITE_ROUTES=true`, off by default):** adds watchlist
+add/update/delete (`POST`/`PUT`/`DELETE /api/discover/watchlist`) and profile update
+(`POST /api/user/update-profile`). They **write to the stage test user's row** — use a
+throwaway stage account, a modest rate, and never point at prod. They're idempotent-ish
+(watchlist add/delete self-no-op; the fixed profile body settles after one write), but
+all hit the same user row, so you're mostly testing row-lock contention unless you use
+several test cookies.
 
 > **Perps/derivatives need the warehouse:** `screener-perps`, `discover-perp-setups`
 > and the derivatives routes read a **ClickHouse warehouse**. If

@@ -7,7 +7,7 @@ import http from "k6/http";
 import exec from "k6/execution";
 import { Counter, Rate, Trend } from "k6/metrics";
 import { CONFIG, STEPS, stepAt } from "./config.js";
-import { PUBLIC_ENDPOINTS, AI_ENDPOINTS, GUARDIAN_ENDPOINTS } from "./endpoints.js";
+import { PUBLIC_ENDPOINTS, AI_ENDPOINTS, GUARDIAN_ENDPOINTS, WRITE_ENDPOINTS, DEFAULT_UUIDS } from "./endpoints.js";
 import { CLASSES, CRASH_CLASSES } from "./classes.js";
 import { buildSummary } from "./report.js";
 
@@ -25,16 +25,33 @@ const INCLUDE_AI = CONFIG.aiActive;
 function baseFor(svc) {
   return svc === "eg" ? CONFIG.guardianBaseUrl : CONFIG.baseUrl;
 }
+// Write routes only when INCLUDE_WRITE_ROUTES=true, filtered to the selected service.
+const writeEndpoints = CONFIG.includeWrites
+  ? WRITE_ENDPOINTS.filter((e) => (e.svc === "fd" && WANT_FD) || (e.svc === "eg" && WANT_EG && HAS_GUARDIAN))
+  : [];
 const ENDPOINTS = [
   ...(WANT_FD ? PUBLIC_ENDPOINTS : []),
   ...(WANT_FD && INCLUDE_AI ? AI_ENDPOINTS : []),
   ...(WANT_EG && HAS_GUARDIAN ? GUARDIAN_ENDPOINTS : []),
+  ...writeEndpoints,
 ]
-  .filter((e) => !e.auth || HAS_COOKIE)
-  .map((e) => ({ ...e, url: `${baseFor(e.svc)}${e.path}` }));
+  .filter((e) => !e.auth || HAS_COOKIE) // auth routes + all writes need a cookie
+  .map((e) => ({ ...e, base: baseFor(e.svc) }));
 
 // Replayed on every request so gated fast-dragon + express-guardian reads work.
 const COOKIE_HEADER = HAS_COOKIE ? { Cookie: CONFIG.cookie } : {};
+const WRITE_HEADERS = { ...COOKIE_HEADER, "Content-Type": "application/json" };
+
+// Collect up to `need` coin uuids from any JSON shape (walks for `uuid` keys).
+function collectUuids(node, out, need) {
+  if (!node || out.length >= need) return;
+  if (Array.isArray(node)) {
+    for (const x of node) collectUuids(x, out, need);
+  } else if (typeof node === "object") {
+    if (typeof node.uuid === "string") out.push(node.uuid);
+    for (const k in node) collectUuids(node[k], out, need);
+  }
+}
 
 // One counter per outcome class. Every class gets an add (0 or 1) on every
 // recorded request so each one is always present in the summary.
@@ -154,13 +171,32 @@ export function setup() {
         `Stops only when the server returns HTTP 500+ on more than ${(CONFIG.criticalErrorRate * 100).toFixed(2)}% of a step's requests, or after ${fmtDur(CONFIG.maxDurationSeconds)} (up to ${STEPS[STEPS.length - 1].rps.toFixed(0)} req/s). Timeouts, resets and slow responses don't stop it.`,
     );
   }
+  // Fetch real coin uuids to rotate through the uuid endpoints (fast-dragon only).
+  let uuids = DEFAULT_UUIDS;
+  if (WANT_FD) {
+    const r = http.get(`${CONFIG.baseUrl}/api/coins-list?start=1&limit=${Math.max(CONFIG.uuidRotateCount, 10)}`, { headers: COOKIE_HEADER, timeout: "30s" });
+    try {
+      const out = [];
+      collectUuids(r.json(), out, CONFIG.uuidRotateCount);
+      const uniq = Array.from(new Set(out)).slice(0, CONFIG.uuidRotateCount);
+      if (uniq.length) uuids = uniq;
+    } catch (_) {
+      // keep DEFAULT_UUIDS
+    }
+    console.log(`▶ Rotating ${uuids.length} coin uuids across the uuid endpoints` + (uuids === DEFAULT_UUIDS ? " (fell back to BTC/ETH)" : ""));
+  }
+  if (CONFIG.includeWrites) console.warn(`⚠ INCLUDE_WRITE_ROUTES=true — write routes active (${writeEndpoints.length}); these WRITE to the stage test user. Use a throwaway stage account.`);
+
   // Probe the first endpoint we'll actually hit (works for fd-only, eg-only or both).
   const probeEp = ENDPOINTS[0];
-  const probe = http.get(probeEp.url, { headers: COOKIE_HEADER, tags: { name: "setup-probe", group: "setup" }, timeout: "30s", responseType: "none" });
+  const probeUrl = probeEp.base + (probeEp.rotate ? probeEp.path.replace("{UUID}", uuids[0]) : probeEp.path);
+  const probe = http.get(probeUrl, { headers: COOKIE_HEADER, tags: { name: "setup-probe", group: "setup" }, timeout: "30s", responseType: "none" });
   const limit = probe.headers["Ratelimit-Limit"] || probe.headers["RateLimit-Limit"];
   if (probe.status === 0) console.warn(`⚠ Probe failed: ${probe.error}. Is ${probeEp.svc === "eg" ? "GUARDIAN_BASE_URL" : "TARGET_BASE_URL"} reachable?`);
   else if (limit) console.warn(`⚠ Server rate limit is ON: ${limit} requests per window per IP. You'll get 429s, not real capacity. Set RATE_LIMIT_ENABLED=false on the server.`);
   else console.log(`▶ Probe OK (HTTP ${probe.status}, ${Math.round(probe.timings.duration)}ms); server rate limiter is off.`);
+
+  return { uuids };
 }
 
 // Failing requests are logged as they happen (with the real error message) by
@@ -170,20 +206,32 @@ export function setup() {
 const LOG_ERRORS = (__ENV.LOG_ERRORS || "true").toLowerCase() !== "false";
 let lastLog = 0;
 
-export default function () {
-  const e = ENDPOINTS[exec.scenario.iterationInTest % ENDPOINTS.length];
+export default function (data) {
+  const iter = exec.scenario.iterationInTest;
+  const e = ENDPOINTS[iter % ENDPOINTS.length];
   // Elapsed time since the load started (setup excluded).
   const step = stepAt((Date.now() - exec.scenario.startTime) / 1000);
   const tags = { name: e.name, group: e.group, step };
   started.add(1, { step });
   activeVus.add(exec.instance.vusActive, tags);
 
-  const res = http.get(e.url, {
-    tags,
-    headers: COOKIE_HEADER,
-    timeout: e.group === "ai" ? CONFIG.aiRequestTimeout : CONFIG.requestTimeout,
-    responseType: "none", // body is read (SSE streams included) but not kept
-  });
+  // Rotate a real coin uuid into the path for uuid endpoints.
+  let path = e.path;
+  if (e.rotate) {
+    const uuids = data && data.uuids && data.uuids.length ? data.uuids : DEFAULT_UUIDS;
+    path = path.replace("{UUID}", uuids[iter % uuids.length]);
+  }
+  const url = e.base + path;
+  const timeout = e.group === "ai" ? CONFIG.aiRequestTimeout : CONFIG.requestTimeout;
+  const getParams = { tags, headers: COOKIE_HEADER, timeout, responseType: "none" };
+  const writeParams = { tags, headers: WRITE_HEADERS, timeout, responseType: "none" };
+
+  // Dispatch by method (writes carry a JSON body + Content-Type); default is GET.
+  let res;
+  if (e.method === "POST") res = http.post(url, e.body || null, writeParams);
+  else if (e.method === "PUT") res = http.put(url, e.body || null, writeParams);
+  else if (e.method === "DELETE") res = http.del(url, null, writeParams);
+  else res = http.get(url, getParams);
 
   const cls = classify(res);
   if (cls === "cancelled") return; // the test is stopping: not a server result
