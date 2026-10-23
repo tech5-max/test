@@ -4,10 +4,11 @@
 //           (HTTP 500+ (timeouts/resets do not count) from the server), never because of slowness
 // See README.md.
 import http from "k6/http";
+import { sleep } from "k6";
 import exec from "k6/execution";
 import { Counter, Rate, Trend } from "k6/metrics";
 import { CONFIG, STEPS, stepAt } from "./config.js";
-import { PUBLIC_ENDPOINTS, AI_ENDPOINTS, GUARDIAN_ENDPOINTS, WRITE_ENDPOINTS, DEFAULT_UUIDS } from "./endpoints.js";
+import { PUBLIC_ENDPOINTS, PAID_ENDPOINTS, AI_ENDPOINTS, GUARDIAN_ENDPOINTS, WRITE_ENDPOINTS, DEFAULT_UUIDS } from "./endpoints.js";
 import { CLASSES, CRASH_CLASSES } from "./classes.js";
 import { buildSummary } from "./report.js";
 
@@ -20,7 +21,8 @@ const HAS_COOKIE = CONFIG.cookie !== "";
 const HAS_GUARDIAN = CONFIG.guardianBaseUrl !== "";
 const WANT_FD = CONFIG.wantFd; // LOAD_TEST_SERVICE includes fast-dragon
 const WANT_EG = CONFIG.wantEg; // LOAD_TEST_SERVICE includes express-guardian
-// AI + portfolio (the `ai` group) only when asked AND the cache is not off.
+// INCLUDE_AI_ANALYSIS (and cache not off) gates the AI routes AND the paid-upstream +
+// news routes — so a default or cache-off run only hits DB/Redis, never a provider.
 const INCLUDE_AI = CONFIG.aiActive;
 function baseFor(svc) {
   return svc === "eg" ? CONFIG.guardianBaseUrl : CONFIG.baseUrl;
@@ -31,6 +33,7 @@ const writeEndpoints = CONFIG.includeWrites
   : [];
 const ENDPOINTS = [
   ...(WANT_FD ? PUBLIC_ENDPOINTS : []),
+  ...(WANT_FD && INCLUDE_AI ? PAID_ENDPOINTS : []),
   ...(WANT_FD && INCLUDE_AI ? AI_ENDPOINTS : []),
   ...(WANT_EG && HAS_GUARDIAN ? GUARDIAN_ENDPOINTS : []),
   ...writeEndpoints,
@@ -195,6 +198,14 @@ export function setup() {
   if (probe.status === 0) console.warn(`⚠ Probe failed: ${probe.error}. Is ${probeEp.svc === "eg" ? "GUARDIAN_BASE_URL" : "TARGET_BASE_URL"} reachable?`);
   else if (limit) console.warn(`⚠ Server rate limit is ON: ${limit} requests per window per IP. You'll get 429s, not real capacity. Set RATE_LIMIT_ENABLED=false on the server.`);
   else console.log(`▶ Probe OK (HTTP ${probe.status}, ${Math.round(probe.timings.duration)}ms); server rate limiter is off.`);
+
+  // Show exactly which routes will be hit, then hold 5s before the load starts.
+  console.log(`\n▶ Routes under test (${ENDPOINTS.length}):`);
+  for (const e of ENDPOINTS) {
+    console.log(`   ${(e.method || "GET").padEnd(6)} ${e.svc}  ${e.path}`);
+  }
+  console.log("\n▶ Starting load test in 5 seconds…");
+  sleep(5);
 
   return { uuids };
 }

@@ -28,7 +28,7 @@ Implemented in `predictive-ai-web-services` (`fast-dragon`, `express-guardian`):
 
 > **Cache-off caveat:** the AI/paid-feed routes depend on the cache (they'd hit
 > Moralis/OpenAI/Kaiko/CoinGlass per request, or 503). The harness enforces this:
-> cache-off runs set `CACHE_OFF=true`, which **force-excludes the AI + portfolio
+> cache-off runs set `CACHE_OFF=true`, which **force-excludes the external group (AI + paid-upstream + news)
 > group**. Cache-off measures the cheap read/compute path only.
 
 > **Prod DB safety:** only `userDetailsDB` has a stage copy; everything else is prod.
@@ -97,7 +97,7 @@ COMBO=multi-cache-on \
 - Setting **`CACHE_ENABLED=false` alone** turns off both the cache and the limiter —
   that's the whole cache-off state. The cache-on combos pass `RATE_LIMIT_ENABLED=false`
   because rate limiting is always off while load testing.
-- `CACHE_OFF=true` on the harness for the cache-off runs force-excludes AI + portfolio.
+- `CACHE_OFF=true` on the harness for the cache-off runs force-excludes the external group (AI + paid + news).
 - Use the **exact** 4 labels above — `consolidate.sh` builds the report from only these.
 - Exactly **one** instance per service runs `RUN_CRONS=true` so migrations/warmers
   happen once.
@@ -140,7 +140,7 @@ Same as `../load-test` (`TEST_MODE` load/stress, `REQUESTS_PER_*`, `DURATION`,
 `STRESS_*`, `HEALTHY_*`, `CRITICAL_ERROR_RATE`, `MAX_VUS`, timeouts) plus
 `GUARDIAN_BASE_URL`, `COOKIE`, `COMBO`, **`LOAD_TEST_SERVICE`** (fast-dragon |
 express-guardian | both), **`CACHE_OFF`** (set `true` on cache-off runs — it
-force-excludes the AI + portfolio group), **`UUID_ROTATE_COUNT`** (default 20 — how
+force-excludes the external group: AI + paid-upstream + news), **`UUID_ROTATE_COUNT`** (default 20 — how
 many real coin uuids to rotate through the uuid endpoints), and
 **`INCLUDE_WRITE_ROUTES`** (see below). See `.env.example`.
 
