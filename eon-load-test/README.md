@@ -106,6 +106,26 @@ COMBO=multi-cache-on \
 (boot → warm → load → down) and consolidates in one command, using a throwaway nginx
 container just for the local multi-replica test — see below.
 
+## Test one service only (`LOAD_TEST_SERVICE`)
+By default the harness hits both services. Set `LOAD_TEST_SERVICE` to limit it to one
+(`fast-dragon` | `express-guardian` | `both`, default `both`):
+```bash
+# express-guardian only (needs GUARDIAN_BASE_URL + COOKIE):
+LOAD_TEST_SERVICE=express-guardian \
+  GUARDIAN_BASE_URL=http://host.docker.internal:5000 ./run.sh
+
+# fast-dragon only (needs TARGET_BASE_URL):
+LOAD_TEST_SERVICE=fast-dragon \
+  TARGET_BASE_URL=http://host.docker.internal:5555 ./run.sh
+
+# both (default — can omit the var):
+TARGET_BASE_URL=http://host.docker.internal:5555 \
+  GUARDIAN_BASE_URL=http://host.docker.internal:5000 ./run.sh
+```
+Combine with `COMBO` / `TEST_MODE` as usual, e.g.
+`LOAD_TEST_SERVICE=express-guardian COMBO=single-cache-on … ./run.sh`. It errors if you
+pick `express-guardian` without a `GUARDIAN_BASE_URL`. Or set `LOAD_TEST_SERVICE=` in `.env`.
+
 ## Consolidate
 ```bash
 ./consolidate.sh         # merges the 4 canonical combos into one report
@@ -118,9 +138,10 @@ Writes `reports/consolidated-<time>.md` from **only** the 4 conditions
 ## Settings
 Same as `../load-test` (`TEST_MODE` load/stress, `REQUESTS_PER_*`, `DURATION`,
 `STRESS_*`, `HEALTHY_*`, `CRITICAL_ERROR_RATE`, `MAX_VUS`, timeouts) plus
-`GUARDIAN_BASE_URL`, `COOKIE`, `COMBO`, and **`CACHE_OFF`** (set `true` on cache-off
-runs — it force-excludes the AI + portfolio group so those paid/uncached routes are
-never hit without a cache, even if `INCLUDE_AI_ANALYSIS=true`). See `.env.example`.
+`GUARDIAN_BASE_URL`, `COOKIE`, `COMBO`, **`LOAD_TEST_SERVICE`** (fast-dragon |
+express-guardian | both), and **`CACHE_OFF`** (set `true` on cache-off runs — it
+force-excludes the AI + portfolio group so those paid/uncached routes are never hit
+without a cache, even if `INCLUDE_AI_ANALYSIS=true`). See `.env.example`.
 
 > **Perps/derivatives need the warehouse:** `screener-perps`, `discover-perp-setups`
 > and the derivatives routes read a **ClickHouse warehouse**. If

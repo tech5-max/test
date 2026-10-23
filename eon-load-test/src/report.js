@@ -220,7 +220,12 @@ export function buildSummary(data) {
   const L = [];
   L.push(`# eon Load Test Report: ${CONFIG.combo}`, "");
   L.push(`**Combo:** \`${CONFIG.combo}\` · **Date:** ${startedAt.toISOString().slice(0, 16).replace("T", " ")} UTC · **Tool:** k6 · **Mode:** ${CONFIG.mode} · **Duration:** ${durationText} · **AI APIs:** ${CONFIG.aiActive ? "included" : "excluded"} · **Endpoints:** ${endpoints.length}`, "");
-  L.push(`**fast-dragon:** ${host}${CONFIG.guardianBaseUrl ? ` · **express-guardian:** ${CONFIG.guardianBaseUrl.replace(/^https?:\/\//, "")}` : ""}`, "");
+  L.push(
+    `**Service:** ${CONFIG.service}` +
+      (CONFIG.wantFd ? ` · **fast-dragon:** ${host}` : "") +
+      (CONFIG.wantEg && CONFIG.guardianBaseUrl ? ` · **express-guardian:** ${CONFIG.guardianBaseUrl.replace(/^https?:\/\//, "")}` : ""),
+    "",
+  );
   L.push("## Result", "");
   if (stages) {
     L.push("| Stage | Load | Detail |", "|---|---|---|");

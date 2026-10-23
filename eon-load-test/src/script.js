@@ -12,20 +12,23 @@ import { CLASSES, CRASH_CLASSES } from "./classes.js";
 import { buildSummary } from "./report.js";
 
 // Resolve each endpoint's base from its service, and drop ones we can't reach:
+//   - LOAD_TEST_SERVICE picks which service(s) to test (fast-dragon / express-guardian / both)
 //   - fast-dragon AI only when INCLUDE_AI_ANALYSIS=true
 //   - express-guardian only when GUARDIAN_BASE_URL is set
 //   - any auth:true endpoint only when a COOKIE is set (else it just 401s)
 const HAS_COOKIE = CONFIG.cookie !== "";
 const HAS_GUARDIAN = CONFIG.guardianBaseUrl !== "";
+const WANT_FD = CONFIG.wantFd; // LOAD_TEST_SERVICE includes fast-dragon
+const WANT_EG = CONFIG.wantEg; // LOAD_TEST_SERVICE includes express-guardian
 // AI + portfolio (the `ai` group) only when asked AND the cache is not off.
 const INCLUDE_AI = CONFIG.aiActive;
 function baseFor(svc) {
   return svc === "eg" ? CONFIG.guardianBaseUrl : CONFIG.baseUrl;
 }
 const ENDPOINTS = [
-  ...PUBLIC_ENDPOINTS,
-  ...(INCLUDE_AI ? AI_ENDPOINTS : []),
-  ...(HAS_GUARDIAN ? GUARDIAN_ENDPOINTS : []),
+  ...(WANT_FD ? PUBLIC_ENDPOINTS : []),
+  ...(WANT_FD && INCLUDE_AI ? AI_ENDPOINTS : []),
+  ...(WANT_EG && HAS_GUARDIAN ? GUARDIAN_ENDPOINTS : []),
 ]
   .filter((e) => !e.auth || HAS_COOKIE)
   .map((e) => ({ ...e, url: `${baseFor(e.svc)}${e.path}` }));
@@ -134,8 +137,12 @@ export function setup() {
     `▶ Combo "${CONFIG.combo}" · mode ${CONFIG.mode} · AI ${INCLUDE_AI ? "on" : "off"}${CONFIG.cacheOff ? " (forced off: cache off)" : ""} · ` +
       `cookie ${HAS_COOKIE ? "set" : "none"} · ${ENDPOINTS.length} endpoints (fast-dragon ${fdCount}, express-guardian ${egCount})`,
   );
-  console.log(`▶ fast-dragon ${CONFIG.baseUrl}${HAS_GUARDIAN ? ` · express-guardian ${CONFIG.guardianBaseUrl}` : " · express-guardian not set (GUARDIAN_BASE_URL)"}`);
-  if (HAS_GUARDIAN && !HAS_COOKIE) console.warn("⚠ GUARDIAN_BASE_URL is set but COOKIE is empty — express-guardian reads need a session cookie and were skipped.");
+  console.log(
+    `▶ Testing: ${CONFIG.service}` +
+      (WANT_FD ? ` · fast-dragon ${CONFIG.baseUrl}` : "") +
+      (WANT_EG ? ` · express-guardian ${CONFIG.guardianBaseUrl}` : ""),
+  );
+  if (WANT_EG && !HAS_COOKIE) console.warn("⚠ express-guardian endpoints need a session cookie (COOKIE) and were skipped.");
   if (CONFIG.mode === "load") {
     console.log(`▶ Fixed ${CONFIG.loadRpm} req/min (${(CONFIG.loadRpm / 60).toFixed(1)} req/s) for ${fmtDur(CONFIG.durationSeconds)}`);
   } else {
@@ -147,9 +154,11 @@ export function setup() {
         `Stops only when the server returns HTTP 500+ on more than ${(CONFIG.criticalErrorRate * 100).toFixed(2)}% of a step's requests, or after ${fmtDur(CONFIG.maxDurationSeconds)} (up to ${STEPS[STEPS.length - 1].rps.toFixed(0)} req/s). Timeouts, resets and slow responses don't stop it.`,
     );
   }
-  const probe = http.get(`${CONFIG.baseUrl}/api/top-coins`, { tags: { name: "setup-probe", group: "setup" }, timeout: "30s", responseType: "none" });
+  // Probe the first endpoint we'll actually hit (works for fd-only, eg-only or both).
+  const probeEp = ENDPOINTS[0];
+  const probe = http.get(probeEp.url, { headers: COOKIE_HEADER, tags: { name: "setup-probe", group: "setup" }, timeout: "30s", responseType: "none" });
   const limit = probe.headers["Ratelimit-Limit"] || probe.headers["RateLimit-Limit"];
-  if (probe.status === 0) console.warn(`⚠ Probe failed: ${probe.error}. Is TARGET_BASE_URL reachable?`);
+  if (probe.status === 0) console.warn(`⚠ Probe failed: ${probe.error}. Is ${probeEp.svc === "eg" ? "GUARDIAN_BASE_URL" : "TARGET_BASE_URL"} reachable?`);
   else if (limit) console.warn(`⚠ Server rate limit is ON: ${limit} requests per window per IP. You'll get 429s, not real capacity. Set RATE_LIMIT_ENABLED=false on the server.`);
   else console.log(`▶ Probe OK (HTTP ${probe.status}, ${Math.round(probe.timings.duration)}ms); server rate limiter is off.`);
 }

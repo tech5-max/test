@@ -33,14 +33,29 @@ export function parseDuration(name, value) {
 }
 
 function readConfig() {
-  const baseUrl = env("TARGET_BASE_URL", "");
-  if (!/^https?:\/\/[^/]+/.test(baseUrl)) throw new Error('TARGET_BASE_URL is required, e.g. "https://api.ozak.dev"');
+  // Which service(s) to test: fast-dragon, express-guardian, or both (default).
+  const rawService = env("LOAD_TEST_SERVICE", "both").toLowerCase().replace(/[\s_]+/g, "-");
+  let service;
+  if (["fast-dragon", "fastdragon", "fd"].includes(rawService)) service = "fd";
+  else if (["express-guardian", "guardian", "eg"].includes(rawService)) service = "eg";
+  else if (["both", ""].includes(rawService)) service = "both";
+  else throw new Error(`LOAD_TEST_SERVICE must be fast-dragon, express-guardian, or both (got "${rawService}")`);
+  const wantFd = service === "fd" || service === "both";
+  const wantEg = service === "eg" || service === "both";
 
-  // express-guardian base, optional. When unset, the EG endpoints are skipped so
-  // a fast-dragon-only run still works.
+  // fast-dragon base, required only when testing fast-dragon.
+  const baseUrl = env("TARGET_BASE_URL", "");
+  if (wantFd && !/^https?:\/\/[^/]+/.test(baseUrl)) {
+    throw new Error('TARGET_BASE_URL is required for fast-dragon, e.g. "https://api.ozak.dev"');
+  }
+
+  // express-guardian base, required only when testing express-guardian.
   const guardianBaseUrl = env("GUARDIAN_BASE_URL", "");
   if (guardianBaseUrl && !/^https?:\/\/[^/]+/.test(guardianBaseUrl)) {
-    throw new Error('GUARDIAN_BASE_URL must be a URL like "https://auth.ozak.dev"');
+    throw new Error('GUARDIAN_BASE_URL must be a URL like "https://app.ozak.dev"');
+  }
+  if (wantEg && !guardianBaseUrl) {
+    throw new Error('GUARDIAN_BASE_URL is required when LOAD_TEST_SERVICE includes express-guardian');
   }
 
   const mode = env("TEST_MODE", "stress").toLowerCase();
@@ -53,6 +68,9 @@ function readConfig() {
   const cfg = {
     baseUrl: baseUrl.replace(/\/+$/, ""),
     guardianBaseUrl: guardianBaseUrl.replace(/\/+$/, ""),
+    service, // "fd" | "eg" | "both"
+    wantFd,
+    wantEg,
     combo,
     // Session cookie (e.g. "siwe-token=...") replayed on every request so gated
     // fast-dragon + express-guardian reads work. Empty = logged-out only.
